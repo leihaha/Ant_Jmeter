@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="ant-jmeter-test" default="run" basedir=".">
+	<tstamp>
+		<format property="time" pattern="yyyyMMddHHmm" />
+	</tstamp>
+	
+	<property name="TestScript" value="login" />
+	
+	<!--本地Jmeter目录-->
+	<property name="jmeter.home" value="D:\apache-jmeter-3.0" />
+	
+	<!--jmeter生成jtl、html格式的结果报告的路径-->	
+	<property name="resultBase" value="Results" />
+	<property name="results.jtl" value="jtl" />
+	<property name="results.html" value="html" />
+	
+	<!--生成的报告-->
+	<property name="results.jtlName" value="${results.jtl}/${TestScript}${time}.jtl" />
+	<property name="results.htmlName" value="${results.html}/${TestScript}${time}.html" />
+	
+	<!--Git拉取到本地-->
+	<property name="githome" value="jmx" /> 
+	
+	<!-- HTML报告配置相关的jar包-->
+	<path id="xslt.classpath">
+		<fileset dir="./lib" includes="xalan*.jar" />
+		<fileset dir="./lib" includes="serializer*.jar" />
+	</path>
+	
+	<target name="run">
+		<echo message="start..." />
+		<antcall target="init" />
+		<antcall target="test" />
+		<antcall target="report" />
+	</target>
+	
+	<target name="init">
+		<mkdir dir="${resultBase}/${results.jtl}" />
+		<mkdir dir="${resultBase}/${results.html}" />		
+	</target>
+	
+	<target name="test">
+		<taskdef name="jmeter" classname="org.programmerplanet.ant.taskdefs.jmeter.JMeterTask" />
+		<jmeter jmeterhome="${jmeter.home}" resultlog="${results.jtlName}">
+		
+			<!--声明要运行的脚本：“*.jmx”指包含此目录下的所有Jmeter脚本，includes里的文件用逗号隔开-->
+			<testplans dir="${githome}"  includes="${TestScript}.jmx" />
+		
+			<property name="jmeter.save.saveservice.output_format" value="xml" />
+		</jmeter>
+	</target>
+		
+	<!--把生成的.jtl数据文件转换成.html格式的报告-->
+	<!-- 自己选择测试报告模板 -->
+	<target name="report">
+		<tstamp><format property="report.datestamp" pattern="yyyy/MM/dd HH:mm" /></tstamp> 
+		<xslt 
+				classpathref="xslt.classpath"
+				force="true"
+				in="${results.jtlName}"
+				out="${results.htmlName}"
+				style="${jmeter.home}/extras/jmeter-results-detail-report_21.xsl">
+				<param name="dateReport" expression="${report.datestamp}" />
+		</xslt>
+		
+		<!--生成报告的时候，需要手动将相关的图片一起起拷贝至目标目录-->
+		<copy todir="${results.html}">
+			<fileset dir="${jmeter.home}/extras">
+				<include name="collapse.png" />
+				<include name="expand.png" />
+			</fileset>
+		</copy>
+	</target>
+	
+</project>

@@ -1,0 +1,96 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<project name="dycmm-performance-jmeter" default="run" basedir=".">
+	<tstamp>
+		<format property="time" pattern="yyyyMMddHHmm" />
+	</tstamp>
+	
+	<!-- 定义jmeter相关信息:报告名称、jmeter目录地址、测试间隔时间 -->
+	<property name="report.title" value="Dyoon dycmms Test Report" />
+	<property name="jmeter-home" value="D:\apache-jmeter-3.0" />
+	<property name="interval-time-in-seconds" value="20" />
+	
+	<!-- 定义相关目录 -->
+	<property name="runremote" value="false" />  <!--jmeter是否分布式-->
+	<property name="resultBase" value="Results" />
+	<property name="results.jtl" value="jtl" />
+	<property name="results.html" value="html" />
+	<property name="jmxs.dir" value="jmxs" />
+	
+	
+	<!-- HTML报告配置相关的jar包-->
+	<path id="xslt.classpath">
+		<fileset dir="./lib" includes="xalan*.jar" />
+		<fileset dir="./lib" includes="serializer*.jar" />
+	</path>
+	
+	<!-- 初始化：删除并重建结果目录-->
+	<target name="init">
+		<delete dir="${resultBase}/" />
+		<mkdir dir="${resultBase}/${results.jtl}" />
+		<mkdir dir="${resultBase}/${results.html}" />
+	</target>
+	
+	<target name="all-test" depends="init">	
+		<!-- antcontrib:support foreach by ant -->
+		<taskdef resource="net/sf/antcontrib/antlib.xml">
+			<classpath>
+				<pathelement location="./lib/ant-contrib-1.0b3.jar" />
+			</classpath>
+		</taskdef>
+		
+		<foreach param="jmxfile" target="test" >
+			<fileset dir="${jmxs.dir}">
+				<include name="*.jmx" />
+			</fileset>
+		</foreach>
+	</target>
+	
+	<target name="test">
+		<!--运行jmx脚本-->
+		<taskdef name="jmeter" 
+			 classname="org.programmerplanet.ant.taskdefs.jmeter.JMeterTask" />
+		<basename property="jmx.filename" file="${jmxfile}" suffix=".jmx" />
+		<echo message="---------- Processing ${jmxfile} -----------" />
+		<echo message="resultlogdir==${resultBase}/${results.jtl}" />
+		<jmeter jmeterhome="${jmeter-home}" 
+				resultlogdir="${resultBase}/${results.jtl}"
+				runremote="${runremote}"
+				resultlog="${jmx.filename}.jtl"
+				testplan="${jmxs.dir}/${jmx.filename}.jmx">
+			<jvmarg value="-Xincgc" />
+			<jvmarg value="-Xms1024m" />
+			<jvmarg value="-Xmx1024m" />
+			
+			<property name="jmeter.save.saveservice.output_format" value="xml" />
+		</jmeter>
+		
+		<sleep seconds="10"></sleep>
+		
+		<!--生成HTML报告-->
+		<tstamp><format property="report.datestamp" pattern="yyyy/MM/dd HH:mm" /></tstamp>
+		<xslt 
+			classpathref="xslt.classpath"
+			force="true"
+			in="${resultBase}/${results.jtl}/${jmx.filename}.jtl"
+			out="${resultBase}/${results.html}/${jmx.filename}.html"		
+			style="${jmeter-home}/extras/jmeter-results-detail-report_21.xsl">
+			<param name="dateReport" expression="${report.datestamp}" />
+			<param name="titleReport" expression="${report.title}:[${jmx.filename}]" />
+		</xslt>
+		
+		<echo message="Sleep ${interval-time-in-seconds} Seconds, and then start next Test; Please waiting..." />
+		<sleep seconds="${interval-time-in-seconds}"></sleep>	
+	</target>
+	
+	<target name="copy-images" depends="all-test">
+		<!--生成报告的时候，需要手动将相关的图片一起起拷贝至目标目录-->
+		<copy todir="${resultBase}/${results.html}">
+			<fileset dir="${jmeter-home}/extras">
+				<include name="collapse.png" />
+				<include name="expand.png" />
+			</fileset>
+		</copy>
+	</target>
+	
+	<target name="run" depends="all-test,copy-images" />
+</project>
